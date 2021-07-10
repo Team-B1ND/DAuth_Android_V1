@@ -1,2 +1,3 @@
 rootProject.name = "DAuth_Android_V1"
 include ':app'
+include ':dauth'

@@ -7,8 +7,8 @@ import android.widget.Toast
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
-import kr.hs.dgsw.smartschool.dauth_android_v1.api.network.DAuthServer.loginForDodam
-import kr.hs.dgsw.smartschool.dauth_android_v1.api.network.DAuthServer.settingForDodam
+import kr.hs.dgsw.smartschool.dauth.api.network.DAuthServer.loginForDodam
+import kr.hs.dgsw.smartschool.dauth.api.network.DAuthServer.settingForDodam
 
 class TestActivity : AppCompatActivity() {
 

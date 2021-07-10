@@ -1,4 +1,4 @@
-package kr.hs.dgsw.smartschool.dauth_android_v1.api.model.request
+package kr.hs.dgsw.smartschool.dauth.api.model.request
 
 data class TokenRequest(
     val code: String,

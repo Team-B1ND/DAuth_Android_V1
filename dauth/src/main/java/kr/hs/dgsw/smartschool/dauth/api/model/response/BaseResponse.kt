@@ -1,4 +1,4 @@
-package kr.hs.dgsw.smartschool.dauth_android_v1.api.model.response
+package kr.hs.dgsw.smartschool.dauth.api.model.response
 
 data class BaseResponse<T>(
     val status: Int,
