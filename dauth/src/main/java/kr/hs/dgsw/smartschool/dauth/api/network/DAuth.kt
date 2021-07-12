@@ -1,12 +1,10 @@
 package kr.hs.dgsw.smartschool.dauth.api.network
 
-import android.app.Application
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,7 +13,6 @@ import androidx.lifecycle.MutableLiveData
 import com.google.gson.GsonBuilder
 import io.reactivex.Single
 import kr.hs.dgsw.smartschool.dauth.R
-import kr.hs.dgsw.smartschool.dauth.api.App
 import kr.hs.dgsw.smartschool.dauth.api.App.Companion.context
 import kr.hs.dgsw.smartschool.dauth.api.model.request.LoginRequest
 import kr.hs.dgsw.smartschool.dauth.api.model.request.RefreshTokenRequest
@@ -31,7 +28,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.lang.Exception
 import java.util.concurrent.Executors
 
-object DAuthServer {
+object DAuth {
     private const val dodamPackage = "kr.hs.dgsw.smartschool.dodamdodam"
     private val dAuth = Retrofit.Builder()
         .baseUrl(context().getString(R.string.url))
@@ -55,7 +52,7 @@ object DAuthServer {
     private fun getToken(tokenRequest: TokenRequest): Single<BaseResponse<TokenResponse>> =
         dAuth.getToken(tokenRequest).map(this::checkError)
 
-    private fun getRefreshToken(refreshTokenRequest: RefreshTokenRequest): Single<BaseResponse<RefreshTokenResponse>> =
+    fun getRefreshToken(refreshTokenRequest: RefreshTokenRequest): Single<BaseResponse<RefreshTokenResponse>> =
         dAuth.getRefreshToken(refreshTokenRequest).map(this::checkError)
 
     private val dodamResult = MutableLiveData<Single<TokenResponse>>()
@@ -66,7 +63,7 @@ object DAuthServer {
         register: ActivityResultLauncher<Intent>,
     ): LiveData<Single<TokenResponse>> {
         val component = ComponentName(dodamPackage,
-            "kr.hs.dgsw.smartschool.dodamdodam.view.activity.ProvideAccountForDAuthActivity")
+            "kr.hs.dgsw.smartschool.dodamdodam.view.activity.DAuthActivity")
         val intent = Intent(Intent.ACTION_MAIN)
         intent.component = component
 
@@ -103,8 +100,6 @@ object DAuthServer {
                     .map { it.data.location.split("?code=")[1] }
                     .flatMap { getToken(TokenRequest(it, clientId, clientSecret)) }
                     .map { it.data }
-            } else {
-                Log.d("DAUTH_TEST_TAG_!@#ASD", "FAIULRE")
             }
         }
     }
