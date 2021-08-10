@@ -4,12 +4,11 @@ import io.reactivex.Single
 import kr.hs.dgsw.smartschool.dauth.api.model.request.LoginRequest
 import kr.hs.dgsw.smartschool.dauth.api.model.request.RefreshTokenRequest
 import kr.hs.dgsw.smartschool.dauth.api.model.request.TokenRequest
-import kr.hs.dgsw.smartschool.dauth.api.model.response.BaseResponse
-import kr.hs.dgsw.smartschool.dauth.api.model.response.LoginResponse
-import kr.hs.dgsw.smartschool.dauth.api.model.response.RefreshTokenResponse
-import kr.hs.dgsw.smartschool.dauth.api.model.response.TokenResponse
+import kr.hs.dgsw.smartschool.dauth.api.model.response.*
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 
 interface DAuthInterface {
@@ -21,5 +20,8 @@ interface DAuthInterface {
 
     @POST("token/refresh")
     fun getRefreshToken(@Body refreshTokenRequest: RefreshTokenRequest): Single<Response<BaseResponse<RefreshTokenResponse>>>
+
+    @GET("user")
+    fun getUserInfo(@Header("access-token") token: String): Single<Response<BaseResponse<UserInfoResponse>>>
 
 }

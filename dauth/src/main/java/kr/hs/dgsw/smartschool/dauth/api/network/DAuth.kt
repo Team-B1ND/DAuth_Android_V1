@@ -17,10 +17,7 @@ import kr.hs.dgsw.smartschool.dauth.api.App.Companion.context
 import kr.hs.dgsw.smartschool.dauth.api.model.request.LoginRequest
 import kr.hs.dgsw.smartschool.dauth.api.model.request.RefreshTokenRequest
 import kr.hs.dgsw.smartschool.dauth.api.model.request.TokenRequest
-import kr.hs.dgsw.smartschool.dauth.api.model.response.BaseResponse
-import kr.hs.dgsw.smartschool.dauth.api.model.response.LoginResponse
-import kr.hs.dgsw.smartschool.dauth.api.model.response.RefreshTokenResponse
-import kr.hs.dgsw.smartschool.dauth.api.model.response.TokenResponse
+import kr.hs.dgsw.smartschool.dauth.api.model.response.*
 import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
@@ -32,6 +29,14 @@ object DAuth {
     private const val dodamPackage = "kr.hs.dgsw.smartschool.dodamdodam"
     private val dAuth = Retrofit.Builder()
         .baseUrl(context().getString(R.string.url))
+        .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
+        .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
+        .callbackExecutor(Executors.newSingleThreadExecutor())
+        .build()
+        .create(DAuthInterface::class.java)
+
+    private val openApi = Retrofit.Builder()
+        .baseUrl("http://open.dodam.b1nd.com/api/")
         .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
         .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
         .callbackExecutor(Executors.newSingleThreadExecutor())
@@ -54,6 +59,9 @@ object DAuth {
 
     fun getRefreshToken(refreshTokenRequest: RefreshTokenRequest): Single<BaseResponse<RefreshTokenResponse>> =
         dAuth.getRefreshToken(refreshTokenRequest).map(this::checkError)
+
+    fun getUserInfo(token: String): Single<BaseResponse<UserInfoResponse>> =
+        openApi.getUserInfo(token).map(this::checkError)
 
     private val dodamResult = MutableLiveData<Single<TokenResponse>>()
 
