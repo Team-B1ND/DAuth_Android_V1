@@ -11,12 +11,12 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 
-interface DAuthInterface {
+interface DAuthInterfaceRx2 {
     @POST("auth/login")
     fun login(@Body loginRequest: LoginRequest): Single<Response<BaseResponse<LoginResponse>>>
 
     @POST("token")
-    fun getToken(@Body tokenRequest: TokenRequest): Single<Response<BaseResponse<TokenResponse>>>
+    fun getToken(@Body tokenRequest: TokenRequest): Single<Response<TokenResponse>>
 
     @POST("token/refresh")
     fun getRefreshToken(@Body refreshTokenRequest: RefreshTokenRequest): Single<Response<BaseResponse<RefreshTokenResponse>>>

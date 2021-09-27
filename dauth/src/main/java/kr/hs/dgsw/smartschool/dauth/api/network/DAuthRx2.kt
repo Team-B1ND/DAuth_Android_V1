@@ -8,32 +8,44 @@ import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.gson.GsonBuilder
 import io.reactivex.Single
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.disposables.Disposable
+import io.reactivex.functions.Consumer
+import io.reactivex.schedulers.Schedulers
+import io.reactivex.subjects.PublishSubject
 import kr.hs.dgsw.smartschool.dauth.R
 import kr.hs.dgsw.smartschool.dauth.api.App.Companion.context
 import kr.hs.dgsw.smartschool.dauth.api.model.request.LoginRequest
 import kr.hs.dgsw.smartschool.dauth.api.model.request.RefreshTokenRequest
 import kr.hs.dgsw.smartschool.dauth.api.model.request.TokenRequest
 import kr.hs.dgsw.smartschool.dauth.api.model.response.*
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import retrofit2.converter.gson.GsonConverterFactory
-import java.lang.Exception
 import java.util.concurrent.Executors
 
-object DAuth {
+object DAuthRx2 {
     private const val dodamPackage = "kr.hs.dgsw.smartschool.dodamdodam"
-    private val dAuth = Retrofit.Builder()
+
+    private val interceptor = HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
+
+    private val retrofit = Retrofit.Builder()
         .baseUrl(context().getString(R.string.url))
         .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
         .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
         .callbackExecutor(Executors.newSingleThreadExecutor())
+        .client(OkHttpClient.Builder().addInterceptor(interceptor).build())
         .build()
-        .create(DAuthInterface::class.java)
+
+    private val dAuth = retrofit
+        .create(DAuthInterfaceRx2::class.java)
 
     private val openApi = Retrofit.Builder()
         .baseUrl("http://open.dodam.b1nd.com/api/")
@@ -41,7 +53,11 @@ object DAuth {
         .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
         .callbackExecutor(Executors.newSingleThreadExecutor())
         .build()
-        .create(DAuthInterface::class.java)
+        .create(DAuthInterfaceRx2::class.java)
+
+    private var dodamResult = PublishSubject.create<TokenResponse>()
+
+    private val installed = MutableLiveData(true)
 
     private fun <T> checkError(response: retrofit2.Response<BaseResponse<T>>): BaseResponse<T> {
         if (!response.isSuccessful) {
@@ -54,8 +70,19 @@ object DAuth {
     private fun login(loginRequest: LoginRequest): Single<BaseResponse<LoginResponse>> =
         dAuth.login(loginRequest).map(this::checkError)
 
-    private fun getToken(tokenRequest: TokenRequest): Single<BaseResponse<TokenResponse>> =
-        dAuth.getToken(tokenRequest).map(this::checkError)
+    private fun getToken(tokenRequest: TokenRequest): Single<TokenResponse> =
+        dAuth.getToken(tokenRequest).map {
+            if (it.isSuccessful) {
+                return@map TokenResponse(it.body()?.token ?: "", it.body()?.refreshToken ?: "")
+            } else {
+                it.errorBody()?.let { body ->
+                    val response =
+                        retrofit.responseBodyConverter<BaseResponse<Unit>>(BaseResponse::class.java,
+                            BaseResponse::class.java.annotations).convert(body)
+                    throw Throwable(response?.message)
+                } ?: throw Throwable(it.message())
+            }
+        }
 
     fun getRefreshToken(refreshTokenRequest: RefreshTokenRequest): Single<BaseResponse<RefreshTokenResponse>> =
         dAuth.getRefreshToken(refreshTokenRequest).map(this::checkError)
@@ -63,22 +90,19 @@ object DAuth {
     fun getUserInfo(token: String): Single<BaseResponse<UserInfoResponse>> =
         openApi.getUserInfo(token).map(this::checkError)
 
-    private val dodamResult = MutableLiveData<Single<TokenResponse>>()
-
-    private val installed = MutableLiveData(true)
-
-    fun Context.loginForDodam(
+    fun Context.loginForDodamRx2(
         register: ActivityResultLauncher<Intent>,
-    ): LiveData<Single<TokenResponse>> {
+        onSuccess: Consumer<TokenResponse>,
+        onFailure: Consumer<Throwable>,
+    ): Disposable {
         val component = ComponentName(dodamPackage,
             "kr.hs.dgsw.smartschool.dodamdodam.view.activity.DAuthActivity")
         val intent = Intent(Intent.ACTION_MAIN)
         intent.component = component
 
-
         if (installed.value == true) register.launch(intent)
         else {
-            dodamResult.value = Single.error(Exception("도담도담을 설치해주세요"))
+            dodamResult.onError(Throwable("도담도담을 설치해주세요"))
             try {
                 startActivity(Intent(Intent.ACTION_VIEW,
                     Uri.parse("market://details?id=$dodamPackage")))
@@ -88,9 +112,19 @@ object DAuth {
             }
         }
         return dodamResult
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribeOn(Schedulers.io())
+            .subscribe(
+                {
+                    onSuccess.accept(it)
+                    dodamResult = PublishSubject.create()
+                }, {
+                    onFailure.accept(it)
+                    dodamResult = PublishSubject.create()
+                })
     }
 
-    fun ComponentActivity.settingForDodam(
+    fun ComponentActivity.settingForDodamRx2(
         clientId: String,
         clientSecret: String,
         redirectUrl: String,
@@ -104,10 +138,25 @@ object DAuth {
                 val id = activityResult.data?.getStringExtra("id") ?: ""
                 val pw = activityResult.data?.getStringExtra("pw") ?: ""
                 val loginRequest = LoginRequest(id, pw, clientId, redirectUrl)
-                dodamResult.value = login(loginRequest)
-                    .map { it.data.location.split("?code=")[1] }
-                    .flatMap { getToken(TokenRequest(it, clientId, clientSecret)) }
-                    .map { it.data }
+
+                val compositeDisposable = CompositeDisposable()
+                compositeDisposable.add(
+                    login(loginRequest)
+                        .map {
+                            Uri.parse(it.data.location).getQueryParameter("code")
+                        }
+                        .flatMap { getToken(TokenRequest(it, clientId, clientSecret)) }
+                        .map { it }.observeOn(AndroidSchedulers.mainThread())
+                        .subscribeOn(Schedulers.io()).subscribe({
+                            dodamResult.onNext(it)
+                            compositeDisposable.clear()
+                            compositeDisposable.dispose()
+                        }, {
+                            dodamResult.onError(it)
+                            compositeDisposable.clear()
+                            compositeDisposable.dispose()
+                        })
+                )
             }
         }
     }
