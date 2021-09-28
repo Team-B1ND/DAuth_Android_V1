@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="url">http://dauth.b1nd.com/api/</string>
+    <string name="activityUrl">kr.hs.dgsw.smartschool.dodamdodam.view.activity.DAuthActivity</string>
+    <string name="dodamPackage">kr.hs.dgsw.smartschool.dodamdodam</string>
 </resources>
